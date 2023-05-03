@@ -20,6 +20,13 @@ public class ResponseUtil {
         return Response.status(Response.Status.NOT_FOUND).build();
     }
 
+    public static Response unauthorized() {
+        return Response.status(Response.Status.UNAUTHORIZED).build();
+    }
+    public static WebApplicationException unauthorizedException() {
+        return new WebApplicationException(org.orquestador.users.rest.utils.ResponseUtil.unauthorized());
+    }
+
     public static WebApplicationException notFoundException() {
         return new WebApplicationException(org.orquestador.users.rest.utils.ResponseUtil.notFound());
     }
