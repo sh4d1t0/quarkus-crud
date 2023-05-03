@@ -1,4 +1,4 @@
-package org.orquestador.rest;
+package org.orquestador.users.rest;
 
 import io.quarkus.panache.common.Sort;
 import jakarta.inject.Inject;
@@ -10,9 +10,9 @@ import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
-import org.orquestador.entities.Users;
-import org.orquestador.repositories.UserRepository;
-import org.orquestador.rest.utils.ResponseUtil;
+import org.orquestador.users.entities.Users;
+import org.orquestador.users.repositories.UserRepository;
+import org.orquestador.users.rest.utils.ResponseUtil;
 
 import java.util.List;
 

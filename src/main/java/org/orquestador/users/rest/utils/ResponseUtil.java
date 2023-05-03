@@ -1,4 +1,4 @@
-package org.orquestador.rest.utils;
+package org.orquestador.users.rest.utils;
 
 import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.Response;
@@ -21,7 +21,7 @@ public class ResponseUtil {
     }
 
     public static WebApplicationException notFoundException() {
-        return new WebApplicationException(ResponseUtil.notFound());
+        return new WebApplicationException(org.orquestador.users.rest.utils.ResponseUtil.notFound());
     }
 
     // otros métodos aquí...

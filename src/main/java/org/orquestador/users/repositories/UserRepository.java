@@ -1,9 +1,8 @@
-package org.orquestador.repositories;
+package org.orquestador.users.repositories;
 
 import io.quarkus.hibernate.orm.panache.PanacheRepository;
-import org.orquestador.entities.Users;
-
 import jakarta.enterprise.context.ApplicationScoped;
+import org.orquestador.users.entities.Users;
 
 @ApplicationScoped
 public class UserRepository implements PanacheRepository<Users> {
