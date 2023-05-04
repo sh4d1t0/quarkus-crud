@@ -93,6 +93,10 @@
       <version>1.18.26</version>
       <scope>compile</scope>
     </dependency>
+    <dependency>
+      <groupId>io.quarkus</groupId>
+      <artifactId>quarkus-smallrye-graphql</artifactId>
+    </dependency>
   </dependencies>
   <build>
     <plugins>
