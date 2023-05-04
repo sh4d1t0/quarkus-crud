@@ -11,7 +11,6 @@ import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
 import org.orquestador.users.entities.Users;
 import org.orquestador.users.repositories.UserRepository;
-import org.orquestador.users.rest.utils.ResponseUtil;
 
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)
@@ -40,8 +39,7 @@ public class UserApi {
     @Operation(summary = "Create a new user")
     @APIResponse(responseCode = "201", description = "The created user")
     public Response create(@Valid @RequestBody Users user) {
-        userRepository.persist(user);
-        return ResponseUtil.created(user);
+        return userRepository.create(user);
     }
 
     @PUT

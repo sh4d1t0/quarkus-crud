@@ -28,6 +28,11 @@ public class UserRepository implements PanacheRepository<Users> {
         return ResponseUtil.ok(user);
     }
 
+    public Response create(@Valid @RequestBody Users user) {
+        persist(user);
+        return ResponseUtil.created(user);
+    }
+
     public Response update(@PathParam("id") Long id, @Valid @RequestBody Users user) {
         Users existingUser = findByIdOptional(id)
                 .orElseThrow(ResponseUtil::notFoundException);
