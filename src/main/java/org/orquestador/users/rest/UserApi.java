@@ -1,6 +1,5 @@
 package org.orquestador.users.rest;
 
-import io.quarkus.panache.common.Sort;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
@@ -14,8 +13,6 @@ import org.orquestador.users.entities.Users;
 import org.orquestador.users.repositories.UserRepository;
 import org.orquestador.users.rest.utils.ResponseUtil;
 
-import java.util.List;
-
 @Path("/users")
 @Produces(MediaType.APPLICATION_JSON)
 @Consumes(MediaType.APPLICATION_JSON)
@@ -26,8 +23,7 @@ public class UserApi {
     @GET
     @Operation(summary = "Get all users")
     public Response getAll() {
-        List<Users> users = userRepository.listAll(Sort.by("name"));
-        return ResponseUtil.ok(users);
+        return userRepository.getAllUsers();
     }
 
     @GET
@@ -36,11 +32,7 @@ public class UserApi {
     @APIResponse(responseCode = "200", description = "User founded")
     @APIResponse(responseCode = "404", description = "The user does not exist")
     public Response getById(@PathParam("id") Long id) {
-        Users user = userRepository.findById(id);
-        if (user == null) {
-            throw ResponseUtil.notFoundException();
-        }
-        return ResponseUtil.ok(user);
+        return userRepository.getById(id);
     }
 
     @POST
@@ -60,13 +52,7 @@ public class UserApi {
     @APIResponse(responseCode = "400", description = "Bad request")
     @APIResponse(responseCode = "404", description = "User not found")
     public Response update(@PathParam("id") Long id, @Valid @RequestBody Users user) {
-        Users existingUser = userRepository.findByIdOptional(id)
-                .orElseThrow(ResponseUtil::notFoundException);
-        existingUser.setName(user.getName());
-        existingUser.setEmail(user.getEmail());
-        existingUser.setPassword(user.getPassword());
-        userRepository.persist(existingUser);
-        return ResponseUtil.ok(existingUser);
+        return userRepository.update(id, user);
     }
 
     @DELETE
@@ -76,11 +62,6 @@ public class UserApi {
     @APIResponse(responseCode = "204", description = "User deleted")
     @APIResponse(responseCode = "404", description = "User not found")
     public Response delete(@PathParam("id") Long id) {
-        Users user = userRepository.findById(id);
-        if (user == null) {
-            throw ResponseUtil.notFoundException();
-        }
-        userRepository.delete(user);
-        return ResponseUtil.noContent();
+        return userRepository.delete(id);
     }
 }
