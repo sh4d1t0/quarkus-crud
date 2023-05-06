@@ -1,0 +1,37 @@
+version: "3.9"
+x-docker-project-name: Orquestador
+services:
+  mysql:
+    container_name: MySQL
+    image: mysql:latest
+    restart: always
+    environment:
+      MYSQL_ROOT_PASSWORD: root
+      MYSQL_DATABASE: orquestador
+      MYSQL_USER: shadito
+      MYSQL_PASSWORD: myshaditopassword
+    volumes:
+      - mysql-data:/var/lib/mysql
+    networks:
+      my-red-local:
+  quarkus:
+    container_name: Quarkus
+    image: quarkus/orquestador-credito-jvm:latest
+    restart: always
+    environment:
+      JAVA_OPTS: '-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -Dquarkus.profile=docker'
+      DATABASE_USER: root
+      DATABASE_PASSWORD: root
+      DATABASE_NAME_URL: "jdbc:mysql://MySQL:3306/orquestador"
+    ports:
+      - "8081:8081"
+    depends_on:
+      - mysql
+    networks:
+      my-red-local:
+
+networks:
+  my-red-local:
+
+volumes:
+  mysql-data:
