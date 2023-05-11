@@ -67,7 +67,6 @@
     <dependency>
       <groupId>io.quarkus</groupId>
       <artifactId>quarkus-undertow</artifactId>
-      <version>3.0.1.Final</version>
     </dependency>
     <dependency>
       <groupId>io.quarkus</groupId>

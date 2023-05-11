@@ -16,7 +16,7 @@ services:
       my-red-local:
   quarkus:
     container_name: Quarkus
-    image: quarkus/orquestador-credito-jvm:latest
+    image: shadito/orquestador-credito-jvm:latest
     restart: always
     environment:
       JAVA_OPTS: '-Dquarkus.http.host=0.0.0.0 -Djava.util.logging.manager=org.jboss.logmanager.LogManager -Dquarkus.profile=docker'
