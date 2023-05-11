@@ -1,5 +1,6 @@
 package org.orquestador.users.entities;
 
+import com.fasterxml.jackson.annotation.JsonBackReference;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -7,6 +8,7 @@ import lombok.AllArgsConstructor;
 import lombok.Data;
 import lombok.NoArgsConstructor;
 import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.orquestador.roles.entities.Rol;
 
 @Data
 @Table(name = "users")
@@ -31,4 +33,9 @@ public class Users {
     @Schema(description = "password", example = "Unpassword1")
     @NotBlank(message = "Password no puede estar en blanco")
     private String password;
+
+    @ManyToOne
+    @JoinColumn(name = "rol_id", referencedColumnName = "id")
+    @JsonBackReference
+    private Rol rol;
 }
