@@ -13,11 +13,15 @@ public class ResponseUtil {
     }
 
     public static Response noContent() {
-        return Response.noContent().build();
+        return Response.status(Response.Status.NO_CONTENT).build();
     }
 
     public static Response notFound() {
         return Response.status(Response.Status.NOT_FOUND).build();
+    }
+
+    public static Response badRequest() {
+        return Response.status(Response.Status.BAD_REQUEST).build();
     }
 
     public static Response unauthorized() {
