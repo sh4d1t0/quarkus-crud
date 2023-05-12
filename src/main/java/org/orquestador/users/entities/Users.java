@@ -1,6 +1,7 @@
 package org.orquestador.users.entities;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
+import com.fasterxml.jackson.annotation.JsonIdentityInfo;
+import com.fasterxml.jackson.annotation.ObjectIdGenerators;
 import jakarta.persistence.*;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
@@ -34,8 +35,8 @@ public class Users {
     @NotBlank(message = "Password no puede estar en blanco")
     private String password;
 
-    @ManyToOne
-    @JoinColumn(name = "rol_id", referencedColumnName = "id")
-    @JsonBackReference
+    @ManyToOne(fetch = FetchType.EAGER)
+    @JoinColumn(name = "rol_id")
+    @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
     private Rol rol;
 }
