@@ -34,7 +34,6 @@ public class UserRepository implements PanacheRepositoryBase<Users, Long> {
                     List<Users> users = entityManager.createQuery("SELECT u FROM Users u", Users.class).getResultList();
                     return fetchRolesForUsers(users);
                 })
-                .onItem().transformToUni(users -> Uni.createFrom().item(users))
                 .runSubscriptionOn(Infrastructure.getDefaultExecutor());
     }
 
@@ -71,46 +70,53 @@ public class UserRepository implements PanacheRepositoryBase<Users, Long> {
         log.info("Creating user: {}", user.getName());
         return Uni.createFrom().voidItem()
                 .onItem().invoke(() -> persist(user))
-                .map(ignore -> ResponseUtil.created(user))
-                //.onFailure().recoverWithItem(error -> Response.status(Response.Status.BAD_REQUEST).build());
-                .onFailure().recoverWithUni(error -> Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).build()));
-
+                .onItem().transformToUni(ignore -> ResponseUtil.created(user))
+                .onFailure().recoverWithItem(() -> Response.status(Response.Status.BAD_REQUEST).build());
     }
 
     public Uni<Response> update(Long id, @Valid @RequestBody Users user) {
         log.info("Updating user with ID: {}", id);
-        return Uni.createFrom().item(() -> {
-            Users existingUser = findByIdOptional(id)
-                    .orElseThrow(ResponseUtil::notFoundException);
-            existingUser.setName(user.getName());
-            existingUser.setEmail(user.getEmail());
-            existingUser.setPassword(user.getPassword());
+        return Uni.createFrom().item(() -> findByIdOptional(id))
+                .onItem().transformToUni(optionalUser -> {
+                    if (optionalUser.isEmpty()) {
+                        return ResponseUtil.notFound();
+                    } else {
+                        Users existingUser = optionalUser.get();
+                        existingUser.setName(user.getName());
+                        existingUser.setEmail(user.getEmail());
+                        existingUser.setPassword(user.getPassword());
 
-            Rol existingRol = existingUser.getRol();
-            Rol newRol = user.getRol();
+                        Rol existingRol = existingUser.getRol();
+                        Rol newRol = user.getRol();
 
-            // Actualizar el campo del rol solo si ha cambiado
-            if (existingRol != null && newRol != null && !existingRol.getId().equals(newRol.getId())) {
-                existingUser.setRol(newRol);
-            }
+                        // Actualizar el campo del rol solo si ha cambiado
+                        if (existingRol != null && newRol != null && !existingRol.getId().equals(newRol.getId())) {
+                            existingUser.setRol(newRol);
+                        }
 
-            persist(existingUser);
-            return ResponseUtil.ok(existingUser);
-        });
+                        persist(existingUser);
+                        return ResponseUtil.ok(existingUser);
+                    }
+                });
     }
+
 
     // Cambiar el tipo de retorno y agregar la anotación @Blocking
     @Transactional
     public Uni<Response> delete(@PathParam("id") Long id) {
         log.info("Deleting user with ID: {}", id);
-        Users user = findById(id);
-        if (user == null) {
-            return Uni.createFrom().item(ResponseUtil.notFound());
-        }
-        entityManager.remove(user);
-        return Uni.createFrom().nullItem()
-                .map(ignore -> ResponseUtil.noContent());
+        return Uni.createFrom().item(() -> findByIdOptional(id))
+                .onItem().transformToUni(userOpt -> {
+                    if (userOpt.isPresent()) {
+                        Users user = userOpt.get();
+                        entityManager.remove(user);
+                        return ResponseUtil.noContent();
+                    } else {
+                        return ResponseUtil.notFound();
+                    }
+                });
     }
+
 
     public Users findByEmailAndPassword(String email, String password) {
         return find("email = ?1 and password = ?2", email, password).firstResult();
