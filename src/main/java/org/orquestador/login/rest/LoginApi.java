@@ -1,5 +1,6 @@
 package org.orquestador.login.rest;
 
+import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.transaction.Transactional;
 import jakarta.validation.Valid;
@@ -30,7 +31,7 @@ public class LoginApi {
     @APIResponse(responseCode = "200", description = "Login successful")
     @APIResponse(responseCode = "400", description = "Bad Request")
     @APIResponse(responseCode = "401", description = "Unauthorized")
-    public Response login(@Valid @RequestBody Login login) {
+    public Uni<Response> login(@Valid @RequestBody Login login) {
         Users foundUser = userRepository.findByEmailAndPassword(login.getEmail(), login.getPassword());
 
         if (foundUser == null) {
