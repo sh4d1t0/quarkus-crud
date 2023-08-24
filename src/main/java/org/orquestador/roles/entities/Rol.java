@@ -1,26 +1,30 @@
 package org.orquestador.roles.entities;
 
-import com.fasterxml.jackson.annotation.JsonBackReference;
-import com.fasterxml.jackson.annotation.JsonInclude;
-import jakarta.persistence.*;
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+
+import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.eclipse.microprofile.openapi.annotations.media.Schema;
-import org.orquestador.users.entities.Users;
-
-import java.util.List;
 
 @Data
+@EqualsAndHashCode(callSuper = true)
 @Table(name = "roles")
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
-@JsonInclude(JsonInclude.Include.NON_NULL)
-public class Rol {
+public class Rol extends PanacheEntityBase {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(columnDefinition = "INT AUTO_INCREMENT")
     @Schema(hidden = true)
     private Long id;
 
@@ -31,8 +35,4 @@ public class Rol {
     @Schema(name = "description", example = "Administrador")
     @NotBlank(message = "Description no puede estar en blanco")
     private String description;
-
-    @OneToMany(mappedBy = "rol", cascade = CascadeType.ALL, fetch = FetchType.LAZY)
-    @JsonBackReference
-    private List<Users> users;
 }

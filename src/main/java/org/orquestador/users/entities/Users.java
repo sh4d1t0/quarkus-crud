@@ -1,25 +1,38 @@
 package org.orquestador.users.entities;
 
+import org.eclipse.microprofile.openapi.annotations.media.Schema;
+import org.orquestador.roles.entities.Rol;
+
 import com.fasterxml.jackson.annotation.JsonIdentityInfo;
 import com.fasterxml.jackson.annotation.ObjectIdGenerators;
-import jakarta.persistence.*;
+
+import io.quarkus.hibernate.reactive.panache.PanacheEntityBase;
+import jakarta.persistence.Column;
+import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
+import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
+import jakarta.persistence.Table;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import lombok.AllArgsConstructor;
 import lombok.Data;
+import lombok.EqualsAndHashCode;
 import lombok.NoArgsConstructor;
-import org.eclipse.microprofile.openapi.annotations.media.Schema;
-import org.orquestador.roles.entities.Rol;
 
+@EqualsAndHashCode(callSuper = false)
 @Data
 @Table(name = "users")
 @NoArgsConstructor
 @AllArgsConstructor
 @Entity
 @JsonIdentityInfo(generator = ObjectIdGenerators.PropertyGenerator.class, property = "id")
-public class Users {
+public class Users extends PanacheEntityBase {
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)
+    @Column(columnDefinition = "INT AUTO_INCREMENT")
     @Schema(hidden = true)
     private Long id;
 
@@ -36,7 +49,9 @@ public class Users {
     @NotBlank(message = "Password no puede estar en blanco")
     private String password;
 
-    @ManyToOne(fetch = FetchType.EAGER)
-    @JoinColumn(name = "rol_id")
+    @ManyToOne
+    @JoinColumn(name = "rol_id", referencedColumnName = "id", columnDefinition = "INT")
     private Rol rol;
+
+    // Constructor, getters y setters
 }

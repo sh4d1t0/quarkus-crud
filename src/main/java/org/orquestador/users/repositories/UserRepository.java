@@ -1,124 +1,89 @@
 package org.orquestador.users.repositories;
 
-import io.quarkus.hibernate.orm.panache.PanacheRepositoryBase;
-import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
-import jakarta.enterprise.context.ApplicationScoped;
-import jakarta.inject.Inject;
-import jakarta.persistence.EntityManager;
-import jakarta.transaction.Transactional;
-import jakarta.validation.Valid;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.core.Response;
-import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
-import org.orquestador.roles.entities.Rol;
-import org.orquestador.users.entities.Users;
-import org.orquestador.users.rest.utils.ResponseUtil;
-import org.slf4j.Logger;
-import org.slf4j.LoggerFactory;
-
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
 import java.util.stream.Collectors;
 
+import org.orquestador.roles.entities.Rol;
+import org.orquestador.users.entities.Users;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+
+import io.quarkus.hibernate.reactive.panache.Panache;
+import io.quarkus.hibernate.reactive.panache.PanacheRepositoryBase;
+import io.quarkus.panache.common.Parameters;
+import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
+
 @ApplicationScoped
 public class UserRepository implements PanacheRepositoryBase<Users, Long> {
     private static final Logger log = LoggerFactory.getLogger(UserRepository.class);
-    @Inject
-    EntityManager entityManager;
 
     public Uni<List<Users>> getAllUsers() {
-        log.info("Fetching all users");
-        return Uni.createFrom().item(() -> {
-                    List<Users> users = entityManager.createQuery("SELECT u FROM Users u", Users.class).getResultList();
-                    return fetchRolesForUsers(users);
-                })
-                .runSubscriptionOn(Infrastructure.getDefaultExecutor());
+        log.info("Get All Users");
+        return Panache.withTransaction(() -> find("SELECT u FROM Users u").list()
+                .onItem().transformToUni(this::fetchRolesForUsers));
     }
 
-    private List<Users> fetchRolesForUsers(List<Users> users) {
+    private Uni<List<Users>> fetchRolesForUsers(List<Users> users) {
+        log.info("Fetching roles for users");
         List<Long> rolIds = users.stream()
                 .map(user -> user.getRol().getId())
                 .collect(Collectors.toList());
 
-        List<Rol> roles = entityManager.createQuery("SELECT r FROM Rol r WHERE r.id IN :rolIds", Rol.class)
-                .setParameter("rolIds", rolIds)
-                .getResultList();
+        return Panache.withTransaction(
+                () -> Rol.find("SELECT r FROM Rol r WHERE r.id IN :rolIds", Parameters.with("rolIds", rolIds)).list()
+                        .onItem().transform(roles -> {
+                            Map<Long, Rol> rolMap = roles.stream()
+                                    .map(rol -> (Rol) rol)
+                                    .collect(Collectors.toMap(Rol::getId, Function.identity()));
 
-        Map<Long, Rol> rolMap = roles.stream()
-                .collect(Collectors.toMap(Rol::getId, Function.identity()));
+                            for (Users user : users) {
+                                Long rolId = user.getRol().getId();
+                                Rol rol = rolMap.get(rolId);
+                                user.setRol(rol);
+                            }
 
-        for (Users user : users) {
-            Long rolId = user.getRol().getId();
-            Rol rol = rolMap.get(rolId);
-            user.setRol(rol);
-        }
-
-        return users;
+                            return users;
+                        }));
     }
 
-    public Uni<Response> getById(Long id) {
+    public Uni<Users> getById(Long id) {
         log.info("Fetching user by ID: {}", id);
-        return Uni.createFrom().item(() -> findById(id))
-                .onItem().ifNotNull().transform(user -> Response.status(Response.Status.OK).entity(user).build())
-                .onItem().ifNull().continueWith(() -> Response.status(Response.Status.NOT_FOUND).build())
-                .runSubscriptionOn(Infrastructure.getDefaultWorkerPool());
+        return Panache.withTransaction(() -> Users.findById(id));
     }
 
-    public Uni<Response> create(@Valid @RequestBody Users user) {
-        log.info("Creating user: {}", user.getName());
-        return Uni.createFrom().voidItem()
-                .onItem().invoke(() -> persist(user))
-                .onItem().transformToUni(ignore -> ResponseUtil.created(user))
-                .onFailure().recoverWithItem(() -> Response.status(Response.Status.BAD_REQUEST).build());
+    public Uni<List<Users>> findByRoleId(Long rolId) {
+        log.info("Fetching users by Rol ID: {}", rolId);
+        return Panache.withTransaction(() -> Users.find("rol.id", rolId).list());
     }
 
-    public Uni<Response> update(Long id, @Valid @RequestBody Users user) {
-        log.info("Updating user with ID: {}", id);
-        return Uni.createFrom().item(() -> findByIdOptional(id))
-                .onItem().transformToUni(optionalUser -> {
-                    if (optionalUser.isEmpty()) {
-                        return ResponseUtil.notFound();
-                    } else {
-                        Users existingUser = optionalUser.get();
-                        existingUser.setName(user.getName());
-                        existingUser.setEmail(user.getEmail());
-                        existingUser.setPassword(user.getPassword());
-
-                        Rol existingRol = existingUser.getRol();
-                        Rol newRol = user.getRol();
-
-                        // Actualizar el campo del rol solo si ha cambiado
-                        if (existingRol != null && newRol != null && !existingRol.getId().equals(newRol.getId())) {
-                            existingUser.setRol(newRol);
-                        }
-
-                        persist(existingUser);
-                        return ResponseUtil.ok(existingUser);
-                    }
-                });
+    public Uni<Users> create(Users user) {
+        return Panache.withTransaction(() -> persist(user))
+                .replaceWith(user);
     }
 
-
-    // Cambiar el tipo de retorno y agregar la anotación @Blocking
-    @Transactional
-    public Uni<Response> delete(@PathParam("id") Long id) {
-        log.info("Deleting user with ID: {}", id);
-        return Uni.createFrom().item(() -> findByIdOptional(id))
-                .onItem().transformToUni(userOpt -> {
-                    if (userOpt.isPresent()) {
-                        Users user = userOpt.get();
-                        entityManager.remove(user);
-                        return ResponseUtil.noContent();
-                    } else {
-                        return ResponseUtil.notFound();
-                    }
-                });
+    public Uni<Users> update(Long id, Users user) {
+        return findById(id)
+                .onItem().ifNotNull().transform(existingUser -> {
+                    existingUser.setName(user.getName());
+                    existingUser.setEmail(user.getEmail());
+                    existingUser.setPassword(user.getPassword());
+                    existingUser.setRol(user.getRol());
+                    return existingUser;
+                })
+                .onItem().ifNotNull().transformToUni(updatedUser -> Panache.withTransaction(() -> persist(updatedUser))
+                        .replaceWith(updatedUser));
     }
 
-
-    public Users findByEmailAndPassword(String email, String password) {
-        return find("email = ?1 and password = ?2", email, password).firstResult();
+    public Uni<Users> delete(Long id) {
+        return Panache.withTransaction(() -> Users.<Users>findById(id)
+                .onItem().ifNotNull().transformToUni(user -> user.delete().replaceWith(user)));
     }
+
+    public Uni<Users> findByEmailAndPassword(String email, String password) {
+        return Panache.withTransaction(() -> Users.find("email = ?1 and password = ?2", email, password).firstResult());
+    }
+
 }

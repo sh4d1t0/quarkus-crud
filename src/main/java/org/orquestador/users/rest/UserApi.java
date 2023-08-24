@@ -1,82 +1,133 @@
 package org.orquestador.users.rest;
 
-import io.smallrye.common.annotation.Blocking;
-import io.smallrye.mutiny.Uni;
-import io.smallrye.mutiny.infrastructure.Infrastructure;
-import jakarta.inject.Inject;
-import jakarta.transaction.Transactional;
-import jakarta.validation.Valid;
-import jakarta.ws.rs.*;
-import jakarta.ws.rs.core.MediaType;
-import jakarta.ws.rs.core.Response;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
-import org.eclipse.microprofile.openapi.annotations.tags.Tag;
+import org.orquestador.response.utils.ErrorResponse;
+import org.orquestador.response.utils.ResponseUtil;
 import org.orquestador.roles.entities.Rol;
+import org.orquestador.roles.repositories.RolRepository;
+import org.orquestador.users.dtos.UserDTO;
 import org.orquestador.users.entities.Users;
 import org.orquestador.users.repositories.UserRepository;
-import org.orquestador.users.rest.utils.ResponseUtil;
+
+import io.smallrye.mutiny.Uni;
+import jakarta.enterprise.context.ApplicationScoped;
+import jakarta.inject.Inject;
+import jakarta.validation.Valid;
+import jakarta.ws.rs.DELETE;
+import jakarta.ws.rs.GET;
+import jakarta.ws.rs.POST;
+import jakarta.ws.rs.PUT;
+import jakarta.ws.rs.Path;
+import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.Response;
 
 @Path("/users")
-@Produces(MediaType.APPLICATION_JSON)
-@Consumes(MediaType.APPLICATION_JSON)
-@Tag(name = "User Resource", description = "Endpoints for handling and managing user related operations.")
+@ApplicationScoped // or @RequestScoped
 public class UserApi {
     @Inject
     UserRepository userRepository;
+    @Inject
+    RolRepository rolRepository;
 
     @GET
     @Operation(summary = "Get all users")
     public Uni<Response> getAll() {
         return userRepository.getAllUsers()
                 .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull().failWith(ResponseUtil::notFoundException);
+                .onItem().ifNull().failWith(new WebApplicationException("Users not found", Response.Status.NOT_FOUND));
     }
 
     @GET
     @Path("/{id}")
     @Operation(summary = "Get a user by id")
-    @APIResponse(responseCode = "200", description = "User founded")
+    @APIResponse(responseCode = "200", description = "User found")
     @APIResponse(responseCode = "404", description = "The user does not exist")
     public Uni<Response> getById(@PathParam("id") Long id) {
-        return userRepository.getById(id);
+        return userRepository.getById(id)
+                .onItem().ifNotNull().transform(this::toResponseDTO)
+                .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
+                .onItem().ifNull().failWith(new WebApplicationException("User not found", Response.Status.NOT_FOUND));
     }
 
-    // Cambiar el tipo de retorno y agregar la anotación @Transactional
+    private UserDTO toResponseDTO(Users user) {
+        UserDTO model = new UserDTO();
+        model.setId(user.getId());
+        model.setName(user.getName());
+        model.setEmail(user.getEmail());
+        model.setRoleName(user.getRol().getName());
+        return model;
+    }
+
+    @GET
+    @Path("rol/{id}")
+    @Operation(summary = "Get users by rol")
+    @APIResponse(responseCode = "200", description = "Users found")
+    @APIResponse(responseCode = "404", description = "The users in rol not found")
+    public Uni<Response> getUsersByRol(@PathParam("id") Long rolId) {
+        return userRepository.findByRoleId(rolId)
+                .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
+                .onItem().ifNull()
+                .failWith(new WebApplicationException("Users in rol not found", Response.Status.NOT_FOUND));
+    }
+
     @POST
-    @Transactional
     @Operation(summary = "Create a new user")
     @APIResponse(responseCode = "201", description = "The created user")
-    public Uni<Response> create(@Valid Users user) {
-        Rol rol = user.getRol();
-        if (rol == null || rol.getId() == null) {
-            return Uni.createFrom().item(Response.status(Response.Status.BAD_REQUEST).entity("The 'id' field of 'rol' is required.").build());
+    public Uni<Response> create(@Valid @RequestBody Users user) {
+        if (user == null) {
+            return Uni.createFrom().failure(new IllegalArgumentException("Invalid request body"));
         }
 
-        return userRepository.create(user);
+        Rol rol = user.getRol();
+        if (rol == null || rol.getId() == null) {
+            return ResponseUtil.badRequest("The 'id' field of 'rol' is required.");
+        }
+
+        return rolRepository.findById(rol.getId())
+                .onItem().ifNull()
+                .failWith(() -> ResponseUtil.badRequestException("Rol not found"))
+                .replaceWith(user)
+                .onItem().transformToUni(userRepository::create)
+                .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("User not found"));
     }
 
     @PUT
     @Path("/{id}")
-    @Transactional
-    @Blocking // Agregar esta anotación a nivel de clase
     @Operation(summary = "Update an existing user")
     @APIResponse(responseCode = "200", description = "User updated")
     @APIResponse(responseCode = "400", description = "Bad request")
     @APIResponse(responseCode = "404", description = "User not found")
     public Uni<Response> update(@PathParam("id") Long id, @Valid Users user) {
-        return userRepository.update(id, user);
+        if (user == null) {
+            return Uni.createFrom().failure(new IllegalArgumentException("Invalid request body"));
+        }
+
+        return userRepository.findById(id)
+                .onItem().ifNotNull().transformToUni(existingUser -> {
+                    existingUser.setName(user.getName());
+                    existingUser.setEmail(user.getEmail());
+                    existingUser.setPassword(user.getPassword());
+                    existingUser.setRol(user.getRol()); // Update rol
+                    return userRepository.update(id, existingUser);
+                })
+                .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
+                .onFailure().recoverWithUni(() -> ResponseUtil.badRequest("Internal Server Error"))
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("User not found"));
     }
 
     @DELETE
     @Path("/{id}")
-    @Transactional
-    @Blocking // Agregar esta anotación a nivel de clase
     @Operation(summary = "Delete an existing user")
-    @APIResponse(responseCode = "204", description = "User deleted")
+    @APIResponse(responseCode = "200", description = "User deleted")
     @APIResponse(responseCode = "404", description = "User not found")
     public Uni<Response> delete(@PathParam("id") Long id) {
-        return userRepository.delete(id);
+        return userRepository.delete(id)
+                .onItem().ifNotNull()
+                .transformToUni(user -> ResponseUtil.ok(new ErrorResponse("User has been deleted.")))
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("User not found"));
     }
 }
