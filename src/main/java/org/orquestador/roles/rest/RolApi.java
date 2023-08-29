@@ -1,8 +1,5 @@
 package org.orquestador.roles.rest;
 
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
@@ -12,9 +9,7 @@ import org.orquestador.roles.repositories.RolRepository;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
-import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Valid;
-import jakarta.validation.Validator;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -33,8 +28,6 @@ import jakarta.ws.rs.core.Response;
 public class RolApi {
     @Inject
     RolRepository rolRepository;
-    @Inject
-    private Validator validator;
 
     @GET
     @Operation(summary = "Get all roles")
@@ -82,18 +75,13 @@ public class RolApi {
         }
         return rolRepository.findById(id)
                 .onItem().ifNotNull().transformToUni(existingRol -> {
-                    Set<ConstraintViolation<Rol>> violations = validator.validate(existingRol);
-                    if (!violations.isEmpty()) {
-                        String errorMessage = violations.stream()
-                                .map(ConstraintViolation::getMessage)
-                                .collect(Collectors.joining(", "));
-                        return Uni.createFrom().item(ResponseUtil.badRequest(errorMessage));
-                    }
-
                     return rolRepository.updateProperties(existingRol, rol)
                             .onItem().transform(updatedRol -> ResponseUtil.ok(updatedRol));
                 })
                 .flatMap(uni -> uni)
+                .onFailure()
+                .recoverWithUni(() -> ResponseUtil.badRequest(
+                        "Internal Server Error. An error occurred when validating that the fields are not empty."))
                 .onItem().ifNull().switchTo(ResponseUtil.notFound("Role not found"));
     }
 
