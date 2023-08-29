@@ -37,16 +37,16 @@ public class Users extends PanacheEntityBase {
     private Long id;
 
     @Schema(description = "name", example = "John")
-    @NotBlank(message = "Name no puede estar en blanco")
+    @NotBlank(message = "Name cannot be null")
     private String name;
 
     @Schema(description = "email", example = "john@example.com")
-    @NotBlank(message = "Email no puede estar en blanco")
+    @NotBlank(message = "Email cannot be null")
     @Email(message = "Email must be a valid email address")
     private String email;
 
     @Schema(description = "password", example = "Unpassword1")
-    @NotBlank(message = "Password no puede estar en blanco")
+    @NotBlank(message = "Password cannot be")
     private String password;
 
     @ManyToOne

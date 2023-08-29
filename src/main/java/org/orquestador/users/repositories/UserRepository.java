@@ -3,8 +3,11 @@ package org.orquestador.users.repositories;
 import java.util.List;
 import java.util.Map;
 import java.util.function.Function;
+import java.util.function.Supplier;
 import java.util.stream.Collectors;
 
+import io.quarkus.panache.common.Sort;
+import lombok.NonNull;
 import org.orquestador.roles.entities.Rol;
 import org.orquestador.users.entities.Users;
 import org.slf4j.Logger;
@@ -20,13 +23,22 @@ import jakarta.enterprise.context.ApplicationScoped;
 public class UserRepository implements PanacheRepositoryBase<Users, Long> {
     private static final Logger log = LoggerFactory.getLogger(UserRepository.class);
 
-    public Uni<List<Users>> getAllUsers() {
-        log.info("Get All Users");
-        return Panache.withTransaction(() -> find("SELECT u FROM Users u").list()
-                .onItem().transformToUni(this::fetchRolesForUsers));
+    // NOTE This Supplier is for sortCriteria
+    Supplier<Uni<List<Users>>> sortedUsersSupplier = () -> this.listAllSorted("name");
+
+    // NOTE This function obtain the list with sortCriteria in Supplier
+    public Uni<List<Users>> listAllSorted(String sortCriteria) {
+        return Panache.withTransaction(() -> Users.listAll(Sort.by(sortCriteria)));
     }
 
-    private Uni<List<Users>> fetchRolesForUsers(List<Users> users) {
+    // NOTE This function obtain a list using the Supplier and then find the rol
+    public Uni<List<Users>> getAllUsers() {
+        log.info("Fetching all roles by name");
+        return sortedUsersSupplier.get()
+                .onItem().transformToUni(this::fetchRolesForUsers);
+    }
+
+    private Uni<List<Users>> fetchRolesForUsers(@NonNull List<Users> users) {
         log.info("Fetching roles for users");
         List<Long> rolIds = users.stream()
                 .map(user -> user.getRol().getId())
@@ -59,12 +71,13 @@ public class UserRepository implements PanacheRepositoryBase<Users, Long> {
         return Panache.withTransaction(() -> Users.find("rol.id", rolId).list());
     }
 
-    public Uni<Users> create(Users user) {
+    public Uni<Users> create(@NonNull Users user) {
+        log.info("Creating user: {}", user.getName());
         return Panache.withTransaction(() -> persist(user))
                 .replaceWith(user);
     }
 
-    public Uni<Users> updateProperties(Users existingUser, Users user) {
+    public Uni<Users> updateProperties(@NonNull Users existingUser, @NonNull Users user) {
         existingUser.setName(user.getName());
         existingUser.setEmail(user.getEmail());
         existingUser.setPassword(user.getPassword());
@@ -75,10 +88,11 @@ public class UserRepository implements PanacheRepositoryBase<Users, Long> {
     public Uni<Users> update(Long id, Users user) {
         log.info("Updating user with ID: {}", id);
         return Panache.withTransaction(() -> Users.<Users>findById(id)
-                .onItem().ifNotNull().transformToUni(existingUser -> updateProperties(existingUser, existingUser)));
+                .onItem().ifNotNull().transformToUni(existingUser -> updateProperties(existingUser, user)));
     }
 
     public Uni<Users> delete(Long id) {
+        log.info("Delete user with ID: {}", id);
         return Panache.withTransaction(() -> Users.<Users>findById(id)
                 .onItem().ifNotNull().transformToUni(user -> user.delete().replaceWith(user)));
     }

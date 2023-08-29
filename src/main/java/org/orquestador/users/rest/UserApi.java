@@ -1,9 +1,9 @@
 package org.orquestador.users.rest;
 
+import jakarta.ws.rs.*;
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
-import org.orquestador.response.utils.ErrorResponse;
 import org.orquestador.response.utils.ResponseUtil;
 import org.orquestador.roles.entities.Rol;
 import org.orquestador.roles.repositories.RolRepository;
@@ -15,15 +15,6 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
-import jakarta.ws.rs.Consumes;
-import jakarta.ws.rs.DELETE;
-import jakarta.ws.rs.GET;
-import jakarta.ws.rs.POST;
-import jakarta.ws.rs.PUT;
-import jakarta.ws.rs.Path;
-import jakarta.ws.rs.PathParam;
-import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -42,7 +33,7 @@ public class UserApi {
     public Uni<Response> getAll() {
         return userRepository.getAllUsers()
                 .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull().failWith(new WebApplicationException("Users not found", Response.Status.NOT_FOUND));
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Users not found"));
     }
 
     @GET
@@ -54,7 +45,7 @@ public class UserApi {
         return userRepository.getById(id)
                 .onItem().ifNotNull().transform(this::toResponseDTO)
                 .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull().failWith(new WebApplicationException("User not found", Response.Status.NOT_FOUND));
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("User not found"));
     }
 
     private UserDTO toResponseDTO(Users user) {
@@ -74,8 +65,7 @@ public class UserApi {
     public Uni<Response> getUsersByRol(@PathParam("id") Long rolId) {
         return userRepository.findByRoleId(rolId)
                 .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull()
-                .failWith(new WebApplicationException("Users in rol not found", Response.Status.NOT_FOUND));
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Users in rol not found"));
     }
 
     @POST
@@ -93,11 +83,10 @@ public class UserApi {
 
         return rolRepository.findById(rol.getId())
                 .onItem().ifNull()
-                .failWith(() -> ResponseUtil.badRequestException("Rol not found"))
+                .failWith(() ->  new NotFoundException("Rol not found"))
                 .replaceWith(user)
                 .onItem().transformToUni(userRepository::create)
-                .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("User not found"));
+                .onItem().ifNotNull().transformToUni(ResponseUtil::ok);
     }
 
     @PUT
@@ -111,14 +100,8 @@ public class UserApi {
             return Uni.createFrom().failure(new IllegalArgumentException("Invalid request body"));
         }
 
-        return userRepository.findById(id)
-                .onItem().ifNotNull().transformToUni(existingUser -> {
-                    return userRepository.updateProperties(existingUser, user)
-                            .onItem().transform(updateUser -> ResponseUtil.ok(updateUser));
-                })
-                .flatMap(uni -> uni)
-                .onFailure()
-                .recoverWithUni(() -> ResponseUtil.badRequest("Cannot update with a rol that does not exist."))
+        return userRepository.update(id, user)
+                .onItem().ifNotNull().transformToUni(ResponseUtil::created)
                 .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("User not found"));
     }
 
@@ -130,7 +113,7 @@ public class UserApi {
     public Uni<Response> delete(@PathParam("id") Long id) {
         return userRepository.delete(id)
                 .onItem().ifNotNull()
-                .transformToUni(user -> ResponseUtil.ok(new ErrorResponse("User has been deleted.")))
+                .transformToUni(user -> ResponseUtil.okWithMessage("User has been deleted."))
                 .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("User not found"));
     }
 }
