@@ -64,17 +64,18 @@ public class UserRepository implements PanacheRepositoryBase<Users, Long> {
                 .replaceWith(user);
     }
 
+    public Uni<Users> updateProperties(Users existingUser, Users user) {
+        existingUser.setName(user.getName());
+        existingUser.setEmail(user.getEmail());
+        existingUser.setPassword(user.getPassword());
+        existingUser.setRol(user.getRol());
+        return existingUser.persistAndFlush().replaceWith(existingUser);
+    }
+
     public Uni<Users> update(Long id, Users user) {
-        return findById(id)
-                .onItem().ifNotNull().transform(existingUser -> {
-                    existingUser.setName(user.getName());
-                    existingUser.setEmail(user.getEmail());
-                    existingUser.setPassword(user.getPassword());
-                    existingUser.setRol(user.getRol());
-                    return existingUser;
-                })
-                .onItem().ifNotNull().transformToUni(updatedUser -> Panache.withTransaction(() -> persist(updatedUser))
-                        .replaceWith(updatedUser));
+        log.info("Updating user with ID: {}", id);
+        return Panache.withTransaction(() -> Users.<Users>findById(id)
+                .onItem().ifNotNull().transformToUni(existingUser -> updateProperties(existingUser, existingUser)));
     }
 
     public Uni<Users> delete(Long id) {

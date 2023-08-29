@@ -15,16 +15,21 @@ import io.smallrye.mutiny.Uni;
 import jakarta.enterprise.context.ApplicationScoped;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
+import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
 import jakarta.ws.rs.POST;
 import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
+import jakarta.ws.rs.Produces;
 import jakarta.ws.rs.WebApplicationException;
+import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
 @Path("/users")
+@Produces(MediaType.APPLICATION_JSON)
+@Consumes(MediaType.APPLICATION_JSON)
 @ApplicationScoped // or @RequestScoped
 public class UserApi {
     @Inject
@@ -108,14 +113,12 @@ public class UserApi {
 
         return userRepository.findById(id)
                 .onItem().ifNotNull().transformToUni(existingUser -> {
-                    existingUser.setName(user.getName());
-                    existingUser.setEmail(user.getEmail());
-                    existingUser.setPassword(user.getPassword());
-                    existingUser.setRol(user.getRol()); // Update rol
-                    return userRepository.update(id, existingUser);
+                    return userRepository.updateProperties(existingUser, user)
+                            .onItem().transform(updateUser -> ResponseUtil.ok(updateUser));
                 })
-                .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onFailure().recoverWithUni(() -> ResponseUtil.badRequest("Internal Server Error"))
+                .flatMap(uni -> uni)
+                .onFailure()
+                .recoverWithUni(() -> ResponseUtil.badRequest("Cannot update with a rol that does not exist."))
                 .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("User not found"));
     }
 
