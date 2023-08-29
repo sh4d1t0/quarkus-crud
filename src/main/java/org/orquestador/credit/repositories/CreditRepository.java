@@ -39,19 +39,21 @@ public class CreditRepository implements PanacheRepositoryBase<Credit, Long> {
                 .replaceWith(credit);
     }
 
+    public Uni<Credit> updateProperties(Credit existingCredit, Credit credit) {
+        // INFO Client Data
+        existingCredit.setClientName(credit.getClientName());
+        existingCredit.setClientLastName(credit.getClientLastName());
+        existingCredit.setClientMaternalLastName(credit.getClientMaternalLastName());
+        existingCredit.setRelationInvex(credit.getRelationInvex());
+        existingCredit.setBusinessName(credit.getBusinessName());
+        existingCredit.setRfc(credit.getRfc());
+        return existingCredit.persistAndFlush().replaceWith(existingCredit);
+    }
+
     public Uni<Credit> update(Long id, Credit credit) {
         log.info("updating credit with ID: {}", id);
         return Panache.withTransaction(() -> Credit.<Credit>findById(id)
-                .onItem().ifNotNull().transformToUni((Credit existingCredit) -> {
-                    // INFO Client Data
-                    existingCredit.setClientName(credit.getClientName());
-                    existingCredit.setClientLastName(credit.getClientLastName());
-                    existingCredit.setClientMaternalLastName(credit.getClientMaternalLastName());
-                    existingCredit.setRelationInvex(credit.getRelationInvex());
-                    existingCredit.setBusinessName(credit.getBusinessName());
-                    existingCredit.setRfc(credit.getRfc());
-                    return existingCredit.persistAndFlush().replaceWith(existingCredit);
-                }));
+                .onItem().ifNotNull().transformToUni(existingCredit -> updateProperties(existingCredit, credit)));
     }
 
     public Uni<Credit> persistOrUpdate(Credit credit) {

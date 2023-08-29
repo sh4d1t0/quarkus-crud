@@ -1,8 +1,5 @@
 package org.orquestador.credit.rest;
 
-import java.util.Set;
-import java.util.stream.Collectors;
-
 import org.eclipse.microprofile.openapi.annotations.Operation;
 import org.eclipse.microprofile.openapi.annotations.parameters.RequestBody;
 import org.eclipse.microprofile.openapi.annotations.responses.APIResponse;
@@ -12,7 +9,6 @@ import org.orquestador.response.utils.ResponseUtil;
 
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
-import jakarta.validation.ConstraintViolation;
 import jakarta.validation.Valid;
 import jakarta.validation.Validator;
 import jakarta.ws.rs.Consumes;
@@ -78,32 +74,20 @@ public class CreditApi {
     @APIResponse(responseCode = "201", description = "The updated credit")
     @APIResponse(responseCode = "404", description = "The credit does not exist")
     @APIResponse(responseCode = "400", description = "Bad request")
-    public Uni<Response> update(@PathParam("id") Long id, Credit newCredit) {
-        if (newCredit == null) {
+    public Uni<Response> update(@PathParam("id") Long id, Credit credit) {
+        if (credit == null) {
             return Uni.createFrom().failure(new IllegalArgumentException("Invalid request body"));
         }
         return creditRepository.findById(id)
                 .onItem().ifNotNull().transformToUni(existingCredit -> {
-                    existingCredit.setClientName(newCredit.getClientName());
-                    existingCredit.setClientLastName(newCredit.getClientLastName());
-                    existingCredit.setClientMaternalLastName(newCredit.getClientMaternalLastName());
-                    existingCredit.setRelationInvex(newCredit.getRelationInvex());
-                    existingCredit.setBusinessName(newCredit.getBusinessName());
-                    existingCredit.setRfc(newCredit.getRfc());
-
-                    Set<ConstraintViolation<Credit>> violations = validator.validate(existingCredit);
-                    if (!violations.isEmpty()) {
-                        String errorMessage = violations.stream()
-                                .map(ConstraintViolation::getMessage)
-                                .collect(Collectors.joining(", "));
-                        return Uni.createFrom().item(ResponseUtil.badRequest(errorMessage));
-                    }
-
-                    return creditRepository.persistOrUpdate(existingCredit)
+                    return creditRepository.updateProperties(existingCredit, credit)
                             .onItem().transform(updateCredit -> ResponseUtil.ok(updateCredit));
                 })
                 .flatMap(uni -> uni)
-                .onItem().ifNull().switchTo(ResponseUtil.notFound("Credot not found"));
+                .onFailure()
+                .recoverWithUni(() -> ResponseUtil.badRequest(
+                        "Internal Server Error. An error occurred when validating that the fields are not empty."))
+                .onItem().ifNull().switchTo(ResponseUtil.notFound("Credit not found"));
     }
 
     @DELETE
