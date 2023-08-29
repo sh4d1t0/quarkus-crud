@@ -18,7 +18,7 @@ public class ResponseUtil {
         return Uni.createFrom().item(() -> Response.ok(entity).build());
     }
 
-    public static Uni<Response> okWithMessagge(String message) {
+    public static Uni<Response> okWithMessage(String message) {
         return generateResponse(Response.Status.OK, message);
     }
 
