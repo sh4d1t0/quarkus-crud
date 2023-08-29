@@ -18,7 +18,6 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -36,7 +35,7 @@ public class RolApi {
     public Uni<Response> getAll() {
         return rolRepository.getAll()
                 .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull().failWith(new WebApplicationException("Roles not found", Response.Status.NOT_FOUND));
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Roles not found"));
     }
 
     @GET
@@ -47,7 +46,7 @@ public class RolApi {
     public Uni<Response> getById(@PathParam("id") Long id) {
         return rolRepository.getById(id)
                 .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull().failWith(new WebApplicationException("Rol not found", Response.Status.NOT_FOUND));
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Rol not found"));
     }
 
     @POST
@@ -58,9 +57,8 @@ public class RolApi {
             return Uni.createFrom().failure(new IllegalArgumentException("Invalid request body"));
         }
         return rolRepository.create(rol)
-                .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull()
-                .failWith(new WebApplicationException("Rol con not be created", Response.Status.NOT_FOUND));
+                .onItem().ifNotNull().transformToUni(ResponseUtil::created)
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Rol con not be created"));
     }
 
     @PUT
@@ -73,16 +71,9 @@ public class RolApi {
         if (rol == null) {
             return Uni.createFrom().failure(new IllegalArgumentException("Invalid request body"));
         }
-        return rolRepository.findById(id)
-                .onItem().ifNotNull().transformToUni(existingRol -> {
-                    return rolRepository.updateProperties(existingRol, rol)
-                            .onItem().transform(updatedRol -> ResponseUtil.ok(updatedRol));
-                })
-                .flatMap(uni -> uni)
-                .onFailure()
-                .recoverWithUni(() -> ResponseUtil.badRequest(
-                        "Internal Server Error. An error occurred when validating that the fields are not empty."))
-                .onItem().ifNull().switchTo(ResponseUtil.notFound("Role not found"));
+        return rolRepository.update(id, rol)
+                .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Rol not found!"));
     }
 
     @DELETE
@@ -93,7 +84,7 @@ public class RolApi {
     public Uni<Response> delete(@PathParam("id") Long id) {
         return rolRepository.delete(id)
                 .onItem().ifNotNull()
-                .transformToUni(rol -> ResponseUtil.okWithMessagge("Rol has been deleted."))
+                .transformToUni(rol -> ResponseUtil.okWithMessage("Rol has been deleted."))
                 .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Rol not found"));
     }
 }

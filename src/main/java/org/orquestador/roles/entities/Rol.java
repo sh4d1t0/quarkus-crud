@@ -29,10 +29,10 @@ public class Rol extends PanacheEntityBase {
     private Long id;
 
     @Schema(name = "name", example = "admin")
-    @NotBlank(message = "Name no puede estar en blanco")
+    @NotBlank(message = "Name cannot be null")
     private String name;
 
     @Schema(name = "description", example = "Administrador")
-    @NotBlank(message = "Description no puede estar en blanco")
+    @NotBlank(message = "Description cannot be null")
     private String description;
 }
