@@ -10,7 +10,6 @@ import org.orquestador.response.utils.ResponseUtil;
 import io.smallrye.mutiny.Uni;
 import jakarta.inject.Inject;
 import jakarta.validation.Valid;
-import jakarta.validation.Validator;
 import jakarta.ws.rs.Consumes;
 import jakarta.ws.rs.DELETE;
 import jakarta.ws.rs.GET;
@@ -29,9 +28,6 @@ import jakarta.ws.rs.core.Response;
 public class CreditApi {
     @Inject
     CreditRepository creditRepository;
-
-    @Inject
-    private Validator validator;
 
     @GET
     @Operation(summary = "Get All credits")
