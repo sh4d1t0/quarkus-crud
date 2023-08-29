@@ -18,7 +18,6 @@ import jakarta.ws.rs.PUT;
 import jakarta.ws.rs.Path;
 import jakarta.ws.rs.PathParam;
 import jakarta.ws.rs.Produces;
-import jakarta.ws.rs.WebApplicationException;
 import jakarta.ws.rs.core.MediaType;
 import jakarta.ws.rs.core.Response;
 
@@ -30,25 +29,25 @@ public class CreditApi {
     CreditRepository creditRepository;
 
     @GET
+    @Path("/prospects")
     @Operation(summary = "Get All credits")
     @APIResponse(responseCode = "200", description = "Credits found")
     @APIResponse(responseCode = "404", description = "Credits not found")
     public Uni<Response> getAll() {
         return creditRepository.getAll()
                 .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull()
-                .failWith(new WebApplicationException("Credits not found", Response.Status.NOT_FOUND));
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Credits not found"));
     }
 
     @GET
-    @Path("/{id}")
+    @Path("/{id}/prospect")
     @Operation(summary = "Get a credit by id")
     @APIResponse(responseCode = "200", description = "Credits found")
     @APIResponse(responseCode = "404", description = "Credits not found")
     public Uni<Response> getById(@PathParam("id") Long id) {
         return creditRepository.getById(id)
                 .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull().failWith(new WebApplicationException("Credit not found", Response.Status.NOT_FOUND));
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Credit not found"));
     }
 
     @POST
@@ -60,12 +59,11 @@ public class CreditApi {
         }
         return creditRepository.create(credit)
                 .onItem().ifNotNull().transformToUni(ResponseUtil::ok)
-                .onItem().ifNull()
-                .failWith(new WebApplicationException("Credit can not be created", Response.Status.NOT_FOUND));
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Credit can not be created"));
     }
 
     @PUT
-    @Path("/{id}")
+    @Path("/{id}/prospect")
     @Operation(summary = "Update an existing credit")
     @APIResponse(responseCode = "201", description = "The updated credit")
     @APIResponse(responseCode = "404", description = "The credit does not exist")
@@ -74,27 +72,20 @@ public class CreditApi {
         if (credit == null) {
             return Uni.createFrom().failure(new IllegalArgumentException("Invalid request body"));
         }
-        return creditRepository.findById(id)
-                .onItem().ifNotNull().transformToUni(existingCredit -> {
-                    return creditRepository.updateProperties(existingCredit, credit)
-                            .onItem().transform(updateCredit -> ResponseUtil.ok(updateCredit));
-                })
-                .flatMap(uni -> uni)
-                .onFailure()
-                .recoverWithUni(() -> ResponseUtil.badRequest(
-                        "Internal Server Error. An error occurred when validating that the fields are not empty."))
-                .onItem().ifNull().switchTo(ResponseUtil.notFound("Credit not found"));
+        return creditRepository.update(id, credit)
+                .onItem().ifNotNull().transformToUni(ResponseUtil::created)
+                .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Credit not found"));
     }
 
     @DELETE
-    @Path("/{id}")
+    @Path("/{id}/prospect")
     @Operation(summary = "Delete an existing credit")
     @APIResponse(responseCode = "204", description = "Credit deleted")
     @APIResponse(responseCode = "404", description = "The credit does not exist")
     public Uni<Response> delete(@PathParam("id") Long id) {
         return creditRepository.delete(id)
                 .onItem().ifNotNull()
-                .transformToUni(credit -> ResponseUtil.okWithMessagge("Credit has been deleted."))
+                .transformToUni(credit -> ResponseUtil.okWithMessage("Credit has been deleted."))
                 .onItem().ifNull().switchTo(() -> ResponseUtil.notFound("Credit not found"));
     }
 }
