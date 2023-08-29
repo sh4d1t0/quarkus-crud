@@ -76,15 +76,12 @@ public class RolApi {
     @APIResponse(responseCode = "201", description = "The updated role")
     @APIResponse(responseCode = "404", description = "The role does not exist")
     @APIResponse(responseCode = "400", description = "Bad request")
-    public Uni<Response> update(@PathParam("id") Long id, Rol newRol) {
-        if (newRol == null) {
+    public Uni<Response> update(@PathParam("id") Long id, Rol rol) {
+        if (rol == null) {
             return Uni.createFrom().failure(new IllegalArgumentException("Invalid request body"));
         }
         return rolRepository.findById(id)
                 .onItem().ifNotNull().transformToUni(existingRol -> {
-                    existingRol.setName(newRol.getName());
-                    existingRol.setDescription(newRol.getDescription());
-
                     Set<ConstraintViolation<Rol>> violations = validator.validate(existingRol);
                     if (!violations.isEmpty()) {
                         String errorMessage = violations.stream()
@@ -93,7 +90,7 @@ public class RolApi {
                         return Uni.createFrom().item(ResponseUtil.badRequest(errorMessage));
                     }
 
-                    return rolRepository.persistOrUpdate(existingRol)
+                    return rolRepository.updateProperties(existingRol, rol)
                             .onItem().transform(updatedRol -> ResponseUtil.ok(updatedRol));
                 })
                 .flatMap(uni -> uni)

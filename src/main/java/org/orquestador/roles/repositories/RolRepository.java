@@ -39,14 +39,16 @@ public class RolRepository implements PanacheRepositoryBase<Rol, Long> {
                 .replaceWith(rol);
     }
 
+    public Uni<Rol> updateProperties(Rol existingRol, Rol rol) {
+        existingRol.setName(rol.getName());
+        existingRol.setDescription(rol.getDescription());
+        return existingRol.persistAndFlush().replaceWith(existingRol);
+    }
+
     public Uni<Rol> update(Long id, Rol rol) {
         log.info("Updating rol with ID: {}", id);
         return Panache.withTransaction(() -> Rol.<Rol>findById(id)
-                .onItem().ifNotNull().transformToUni((Rol existingRol) -> {
-                    existingRol.setName(rol.getName());
-                    existingRol.setDescription(rol.getDescription());
-                    return existingRol.persistAndFlush().replaceWith(existingRol);
-                }));
+                .onItem().ifNotNull().transformToUni(existingRol -> updateProperties(existingRol, rol)));
     }
 
     public Uni<Rol> persistOrUpdate(Rol rol) {
